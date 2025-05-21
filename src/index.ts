@@ -8,4 +8,7 @@ export function greet(name: string): string {
 }
 
 // Add more exports here as needed
-export * from './types'; 
+export * from './types';
+
+export { VisibleRender } from './core/visible-render';
+export type { VisibleRenderOptions, PerformanceData } from './types';

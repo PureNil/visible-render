@@ -1,0 +1,37 @@
+body {
+  margin: 0;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.6;
+}
+
+#app {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+h1 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 2rem;
+}
+
+h2 {
+  color: #444;
+  margin-top: 2rem;
+}
+
+p {
+  color: #666;
+  margin-bottom: 2rem;
+}
+
+#demo > div {
+  border-radius: 8px;
+  padding: 20px;
+  transition: background-color 0.3s ease;
+}
+
+#demo > div:not(:first-child) {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+} 
