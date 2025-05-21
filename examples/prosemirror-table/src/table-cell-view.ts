@@ -1,6 +1,19 @@
 import { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorView, NodeView } from 'prosemirror-view';
 
+// 全局 map，key 用 getPos() 的返回值（假设唯一）
+export const cellRenderMap = new Map<number, boolean>();
+
+export function forceRenderRow(rowViewDesc: any, shouldRender: boolean, view: EditorView) {
+  console.log(111111, shouldRender)
+  rowViewDesc.children.forEach((viewDesc: any) => {
+    console.log(111111, viewDesc)
+    viewDesc.spec.setShouldRender(shouldRender);
+    viewDesc.markDirty(1, viewDesc.node.nodeSize - 1);    
+  });
+  rowViewDesc.updateChildren(view, rowViewDesc.posAtStart);
+}
+
 // 创建表格单元格视图
 export class TableCellView implements NodeView {
   dom: HTMLElement;
@@ -34,8 +47,14 @@ export class TableCellView implements NodeView {
         this.dom.style.width = `${width}px`;
       }
     }
+
+    // 读取全局 shouldRender 状态
+    const pos = this.getPos();
+    const shouldRender = pos !== undefined ? cellRenderMap.get(pos) : false;
+
+    console.log(1111111, 'create', shouldRender)
     
-    if (this.shouldRender) {
+    if (shouldRender) {
       this.contentDOM = this.dom;
     } else {
       this.contentDOM = null;
@@ -44,10 +63,14 @@ export class TableCellView implements NodeView {
     }
   }
 
-  shouldRender = false;
+  // shouldRender 不再挂在实例上
 
   setShouldRender(bool: boolean) {
-    this.shouldRender = bool;
+    const pos = this.getPos();
+    if (pos !== undefined) {
+      cellRenderMap.set(pos, bool);
+    }
+    console.log(1111111, 'setShouldRender', bool)
   }
 
   // 更新节点
@@ -55,22 +78,28 @@ export class TableCellView implements NodeView {
     if (node.type !== this.node.type) return false;
     this.node = node;
 
-    // 更新单元格宽度
-    if (node.attrs.colwidth) {
-      const width = node.attrs.colwidth[0];
-      if (width) {
-        this.dom.style.width = `${width}px`;
-      }
-    }
+    const pos = this.getPos();
+    const shouldRender = pos !== undefined ? cellRenderMap.get(pos) : false;
 
-    if (!this.shouldRender) {
-      this.contentDOM = null;
+    console.log(1111111, 'update', shouldRender)
+
+    // // 更新单元格宽度
+    // if (node.attrs.colwidth) {
+    //   const width = node.attrs.colwidth[0];
+    //   if (width) {
+    //     this.dom.style.width = `${width}px`;
+    //   }
+    // }
+
+    if (!shouldRender && this.contentDOM) {
+      // this.contentDOM = null;
       return false;
     }
 
-    if (!this.contentDOM) {
-      this.contentDOM = this.dom;
-      this.contentDOM.innerHTML = ''; // 清空内容
+    if (shouldRender && !this.contentDOM) {
+      // this.contentDOM = this.dom;
+      // this.contentDOM.innerHTML = ''; // 清空内容
+      return false
     }
 
     return true;
@@ -106,4 +135,4 @@ style.textContent = `
     color: #999;
   }
 `;
-document.head.appendChild(style); 
+document.head.appendChild(style);
