@@ -70,7 +70,7 @@ export function createControlPanel(view: EditorView) {
       }
     }
 
-    forceRenderRow(rowViewDesc, shouldRender, view);
+    forceRenderRow(rowViewDesc, !shouldRender, view);
   };
   
   panel.appendChild(cellInput);

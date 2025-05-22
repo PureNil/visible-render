@@ -9,6 +9,7 @@ import { VisibleRender } from '../../src/core/visible-render';
 import { createTable } from './src/table-utils';
 import { createTableCellView } from './src/table-cell-view';
 import { createControlPanel } from './src/control-panel';
+import { RangeManager } from './src/range-manager';
 
 // 创建表格节点配置
 const tableNodesSpec = tableNodes({
@@ -43,7 +44,8 @@ const state = EditorState.create({
   doc: tableData,
   plugins: [
     tableEditing(),
-    columnResizing()
+    columnResizing(),
+    RangeManager.createPlugin(),
   ]
 });
 
