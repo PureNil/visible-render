@@ -5,11 +5,19 @@
  */
 
 import { PerformanceMonitor } from './performance-monitor';
-import { DOMRenderer } from './dom-renderer';
 import { PageManager } from './page-manager';
 import { ObserverManager } from './observer-manager';
 import { ScrollManager } from './scroll-manager';
-import { VisibleRenderOptions, PerformanceData, DataItem } from '../types';
+import { DefaultLayoutCache } from './layout-cache';
+import { LayoutItem, PerformanceData, PerformanceThresholds, RenderCollection, Renderer } from '../types';
+
+export interface VisibleRenderOptions<T extends LayoutItem> {
+  renderCollection: RenderCollection<T>;
+  renderer: Renderer;
+  enablePerformanceMonitor?: boolean;
+  performanceThresholds?: PerformanceThresholds;
+  enableFastScroll?: boolean;
+}
 
 // 扩展Performance接口以包含memory属性
 declare global {
@@ -26,11 +34,9 @@ declare global {
  * 按需渲染核心类
  * 负责协调各个功能模块，实现高效的按需渲染
  */
-export class VisibleRender {
+export class VisibleRender<T extends LayoutItem> {
   /** 性能监控实例 */
   private performanceMonitor: PerformanceMonitor;
-  /** DOM渲染管理实例 */
-  private renderer: DOMRenderer;
   /** 页面管理实例 */
   private pageManager: PageManager;
   /** 观察器管理实例 */
@@ -42,7 +48,7 @@ export class VisibleRender {
   /** 是否启用快速滚动优化 */
   private enableFastScroll: boolean;
   /** 配置选项 */
-  private options: VisibleRenderOptions;
+  private options: VisibleRenderOptions<T>;
 
   /**
    * 创建按需渲染实例
@@ -51,62 +57,24 @@ export class VisibleRender {
    */
   constructor(
     private container: HTMLElement,
-    options: VisibleRenderOptions,
+    options: VisibleRenderOptions<T>,
   ) {
     this.options = options;
     this.enablePerformanceMonitor = options.enablePerformanceMonitor ?? true;
     this.enableFastScroll = options.enableFastScroll ?? true;
 
-    // 初始化数据源
-    const dataSource = options.dataSource;
-
     // 初始化各个组件
     this.performanceMonitor = new PerformanceMonitor(container, options.performanceThresholds);
-    this.renderer = new DOMRenderer(container, options.contentContainer, dataSource, options.view);
-    const containerHeight = this.renderer.initialize();
-    this.pageManager = new PageManager(containerHeight, dataSource);
-    this.observerManager = new ObserverManager(container, this.renderer, this.pageManager, dataSource);
-    this.scrollManager = new ScrollManager();
-
-    this.setupScrollHandler();
+    const containerHeight = this.container.clientHeight;
+    const layoutCache = new DefaultLayoutCache(options.renderCollection);
+    this.pageManager = new PageManager(options.renderCollection, layoutCache, containerHeight);
+    this.observerManager = new ObserverManager(container, options.renderer, this.pageManager, dataSource);
+    this.scrollManager = new ScrollManager(container, this.pageManager);
     
     // 如果启用性能监控，显示FPS计数器
     if (this.enablePerformanceMonitor) {
       this.performanceMonitor.showFPSCounter();
     }
-  }
-
-  /**
-   * 设置滚动事件处理
-   * 包含防抖和快速滚动的优化处理
-   * @private
-   */
-  private setupScrollHandler() {
-    let scrollTimeout: number;
-    const handleScroll = () => {
-      const startTime = performance.now();
-      
-      if (this.enableFastScroll) {
-        // 检查滚动速度
-        const { startTime, isQuickScroll } = this.scrollManager.checkScrollSpeed();
-        
-        // 快速滚动时立即更新可见页
-        if (isQuickScroll) {
-          this.pageManager.handleFastScroll(this.container.scrollTop);
-          return;
-        }
-      }
-      
-      // 使用防抖处理正常滚动
-      clearTimeout(scrollTimeout);
-      scrollTimeout = window.setTimeout(() => {
-        const scrollTime = performance.now() - startTime;
-        this.updatePerformanceMetrics(scrollTime);
-        this.pageManager.handleScroll(this.container.scrollTop);
-      }, 150);
-    };
-
-    this.container.addEventListener('scroll', handleScroll);
   }
 
   /**
@@ -123,7 +91,7 @@ export class VisibleRender {
       scrollTime,
       renderTime,
       observedRows: this.observerManager.getObserverCount(),
-      totalRows: this.options.dataSource?.items.length || 0,
+      totalRows: this.options.renderCollection.items.length,
       currentPage: this.pageManager.getCurrentPage(this.container.scrollTop)
     });
   }
@@ -134,8 +102,6 @@ export class VisibleRender {
   public destroy() {
     this.observerManager.cleanupAllObservers();
     this.performanceMonitor.destroy();
-    // 移除滚动监听器
-    this.container.removeEventListener('scroll', this.setupScrollHandler);
   }
 
   /**
@@ -146,7 +112,7 @@ export class VisibleRender {
     return {
       fps: this.performanceMonitor.getCurrentFPS(),
       observerCount: this.observerManager.getObserverCount(),
-      renderedRows: this.options.dataSource?.items.length || 0,
+      renderedRows: this.options.renderCollection.items.length,
       memoryUsage: performance.memory?.usedJSHeapSize
     };
   }

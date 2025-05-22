@@ -1,6 +1,6 @@
-import { DOMRenderer } from './dom-renderer';
+
+import { Renderer } from '../types';
 import { PageManager, PageChangeEvent } from './page-manager';
-import { DataSource } from '../types';
 
 /**
  * 观察器管理类
@@ -23,9 +23,8 @@ export class ObserverManager {
    */
   constructor(
     private container: HTMLElement,
-    private renderer: DOMRenderer,
+    private renderer: Renderer,
     private pageManager: PageManager,
-    private dataSource: DataSource
   ) {
     this.setupObservers();
     this.pageManager.addPageChangeListener(this.handlePageChange.bind(this));
@@ -67,13 +66,13 @@ export class ObserverManager {
         const index = parseInt(row.dataset.index || '0');
         
         if (entry.isIntersecting) {
-          this.renderer.renderRow(index);
+          this.renderer.renderItem(index);
           row.style.backgroundColor = this.pageManager.getPageColor(index);
         } else {
           const pageIndex = this.pageManager.getPageIndexForRow(index);
           const visiblePage = this.pageManager.getCurrentPage(this.container.scrollTop);
           if (Math.abs(pageIndex - visiblePage) > 1) {
-            this.renderer.clearRow(index);
+            this.renderer.clearItem(index);
           }
         }
       });
@@ -117,7 +116,7 @@ export class ObserverManager {
    * @private
    */
   private observeRow(index: number) {
-    const row = this.renderer.getRowElement(index);
+    const row = this.renderer.getItemElement(index);
     if (row) {
       this.rowObserver.observe(row);
       this.observers.set(index, true);
@@ -130,11 +129,11 @@ export class ObserverManager {
    * @private
    */
   private clearRowObserver(index: number) {
-    const row = this.renderer.getRowElement(index);
+    const row = this.renderer.getItemElement(index);
     if (row) {
       this.rowObserver.unobserve(row);
       this.observers.delete(index);
-      this.renderer.clearRow(index);
+      this.renderer.clearItem(index);
     }
   }
 

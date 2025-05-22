@@ -1,4 +1,5 @@
-import { DataSource } from '../types';
+import { LayoutCache, LayoutItem } from '../types/layout-cache';
+import { RenderCollection } from '../types/renderer';
 
 /**
  * 页面数据结构
@@ -21,32 +22,111 @@ export interface Page {
 export interface PageChangeEvent {
   /** 当前可见页索引 */
   visiblePage: number;
-  /** 缓冲区范围 */
-  bufferRange: { start: number; end: number };
+  /** 页面列表 */
+  pages: Page[];
 }
 
 /**
- * 页面管理类
- * 负责管理内容的分页逻辑，优化渲染和滚动性能
+ * 页面管理器
+ * 负责管理页面的布局和渲染
  */
 export class PageManager {
-  /** 页面数组，存储所有分页信息 */
   private pages: Page[] = [];
-  /** 当前可见页索引 */
-  private _visiblePage: number = -1;
-  /** 页面变化事件监听器 */
   private pageChangeListeners: Set<(event: PageChangeEvent) => void> = new Set();
+  private _visiblePage: number = -1;
 
-  /**
-   * 创建页面管理实例
-   * @param containerHeight - 容器可视区域高度
-   * @param dataSource - 数据源
-   */
   constructor(
-    private containerHeight: number,
-    private dataSource: DataSource
+    private renderCollection: RenderCollection<LayoutItem>,
+    private layoutCache: LayoutCache<LayoutItem>,
+    private containerHeight: number
   ) {
     this.calculatePages();
+  }
+
+  /**
+   * 获取页面列表
+   */
+  getPages(): Page[] {
+    return this.pages;
+  }
+
+  /**
+   * 更新页面布局
+   * @param startIndex - 起始索引
+   * @param endIndex - 结束索引
+   */
+  updatePages(startIndex: number, endIndex: number): void {
+    this.pages = [];
+    let currentTop = 0;
+
+    for (let i = startIndex; i <= endIndex; i++) {
+      const item = this.renderCollection.items[i];
+      if (!item) continue;
+
+      const layout = this.layoutCache.get(item);
+      const page: Page = {
+        start: i,
+        end: i,
+        top: currentTop,
+        bottom: currentTop + layout.height
+      };
+      this.pages.push(page);
+      currentTop = page.bottom;
+    }
+  }
+
+  /**
+   * 获取指定位置所在的页面
+   * @param position - 位置（像素）
+   */
+  getPageAtPosition(position: number): Page | null {
+    return this.pages.find(page => 
+      position >= page.top && position <= page.bottom
+    ) || null;
+  }
+
+  /**
+   * 获取指定索引所在的页面
+   * @param index - 索引
+   */
+  getPageAtIndex(index: number): Page | null {
+    return this.pages.find(page => 
+      index >= page.start && index <= page.end
+    ) || null;
+  }
+
+  /**
+   * 清除所有页面
+   */
+  clear(): void {
+    this.pages = [];
+  }
+
+  /**
+   * 添加页面变化监听器
+   * @param listener - 监听器函数
+   */
+  addPageChangeListener(listener: (event: PageChangeEvent) => void): void {
+    this.pageChangeListeners.add(listener);
+  }
+
+  /**
+   * 移除页面变化监听器
+   * @param listener - 监听器函数
+   */
+  removePageChangeListener(listener: (event: PageChangeEvent) => void): void {
+    this.pageChangeListeners.delete(listener);
+  }
+
+  /**
+   * 触发页面变化事件
+   */
+  private notifyPageChange(): void {
+    const event: PageChangeEvent = {
+      visiblePage: this._visiblePage,
+      pages: this.pages
+    };
+    this.pageChangeListeners.forEach(listener => listener(event));
   }
 
   /**
@@ -60,14 +140,19 @@ export class PageManager {
     // 设置页面高度为容器高度的1.5倍，提供缓冲区
     const pageHeight = this.containerHeight * 1.5;
 
-    for (let i = 0; i < this.dataSource.items.length; i++) {
-      currentHeight += this.dataSource.items[i].height;
-      if (currentHeight >= pageHeight || i === this.dataSource.items.length - 1) {
+    for (let i = 0; i < this.renderCollection.items.length; i++) {
+      const item = this.renderCollection.items[i];
+      if (!item) continue;
+
+      const layout = this.layoutCache.get(item);
+      currentHeight += layout.height;
+      
+      if (currentHeight >= pageHeight || i === this.renderCollection.items.length - 1) {
         this.pages.push({
           start: pageStart,
           end: i,
           top: this.getRowTop(pageStart),
-          bottom: this.getRowTop(i) + this.dataSource.items[i].height
+          bottom: this.getRowTop(i) + layout.height
         });
         pageStart = i + 1;
         currentHeight = 0;
@@ -83,7 +168,9 @@ export class PageManager {
   getRowTop(index: number): number {
     let top = 0;
     for (let i = 0; i < index; i++) {
-      top += this.dataSource.items[i].height;
+      const item = this.renderCollection.items[i];
+      if (!item) continue;
+      top += this.layoutCache.get(item).height;
     }
     return top;
   }
@@ -148,56 +235,11 @@ export class PageManager {
    * 更新可见页并触发事件
    * @param scrollTop - 滚动位置
    */
-  handleScroll(scrollTop: number) {
+  updateVisiblePage(scrollTop: number) {
     const newVisiblePage = this.getCurrentPage(scrollTop);
     if (newVisiblePage !== this._visiblePage) {
       this._visiblePage = newVisiblePage;
       this.notifyPageChange();
     }
-  }
-
-  /**
-   * 处理快速滚动
-   * 立即更新可见页并触发事件
-   * @param scrollTop - 滚动位置
-   */
-  handleFastScroll(scrollTop: number) {
-    const newVisiblePage = this.getCurrentPage(scrollTop);
-    if (newVisiblePage !== this._visiblePage) {
-      this._visiblePage = newVisiblePage;
-      this.notifyPageChange();
-    }
-  }
-
-  /**
-   * 添加页面变化事件监听器
-   * @param listener - 事件监听器
-   */
-  addPageChangeListener(listener: (event: PageChangeEvent) => void) {
-    this.pageChangeListeners.add(listener);
-  }
-
-  /**
-   * 移除页面变化事件监听器
-   * @param listener - 事件监听器
-   */
-  removePageChangeListener(listener: (event: PageChangeEvent) => void) {
-    this.pageChangeListeners.delete(listener);
-  }
-
-  /**
-   * 通知页面变化事件
-   * @private
-   */
-  private notifyPageChange() {
-    const range = this.getBufferRange(this._visiblePage);
-    if (!range) return;
-
-    const event: PageChangeEvent = {
-      visiblePage: this._visiblePage,
-      bufferRange: range
-    };
-
-    this.pageChangeListeners.forEach(listener => listener(event));
   }
 } 

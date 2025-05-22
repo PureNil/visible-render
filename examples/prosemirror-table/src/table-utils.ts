@@ -146,5 +146,6 @@ export function createTable(schema: Schema, rows: number, cols: number) {
     cells.push(schema.nodes.table_row.create(null, row));
   }
 
-  return schema.nodes.table.create(null, cells);
+  const table = schema.nodes.table.create(null, cells);
+  return schema.nodes.doc.create(null, [table]);
 } 

@@ -57,6 +57,11 @@ const view = new EditorView(document.querySelector('#editor'), {
   }
 });
 
+window.editor = {
+  state,
+  view,
+}
+
 // 添加控制面板
 const controlPanel = createControlPanel(view as any);
 document.body.appendChild(controlPanel);
