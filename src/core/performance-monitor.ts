@@ -66,7 +66,7 @@ export class PerformanceMonitor {
     const checkFPS = () => {
       const now = performance.now();
       const elapsed = now - this.lastFrameTime;
-      
+
       if (elapsed >= 1000) {
         this.fps = Math.round((this.frameCount * 1000) / elapsed);
         this.frameCount = 0;
@@ -75,13 +75,13 @@ export class PerformanceMonitor {
         // 检查FPS警告
         if (this.thresholds.minFPS && this.fps < this.thresholds.minFPS) {
           this.addWarning('fps', `FPS过低: ${this.fps}`, this.fps, this.thresholds.minFPS);
-        }
+      }
       }
       
       this.frameCount++;
       requestAnimationFrame(checkFPS);
     };
-    
+
     requestAnimationFrame(checkFPS);
   }
 
@@ -100,8 +100,8 @@ export class PerformanceMonitor {
       this.memorySamples.push(memoryGrowth);
       if (this.memorySamples.length > this.MEMORY_SAMPLE_SIZE) {
         this.memorySamples.shift();
-      }
-      
+  }
+
       // 计算平均内存增长率
       const avgMemoryGrowth = this.memorySamples.reduce((a, b) => a + b, 0) / this.memorySamples.length;
       

@@ -1,15 +1,19 @@
-import { DataSource, DataItem } from '../types';
+import { DataSource } from '../types';
+// import { EditorView } from 'prosemirror-view';
+
+export function forceRenderRow(rowViewDesc: any, shouldRender: boolean, view: any) {
+  rowViewDesc.children.forEach((viewDesc: any) => {
+    viewDesc.spec.setShouldRender(shouldRender);
+    viewDesc.markDirty(1, viewDesc.node.nodeSize - 1);    
+  });
+  rowViewDesc.updateChildren(view, rowViewDesc.posAtStart);
+}
 
 /**
  * DOM渲染管理类
  * 负责处理DOM元素的渲染和内容更新
  */
 export class DOMRenderer {
-  /** 内容容器元素 */
-  private content: HTMLElement;
-  /** 数据源 */
-  private dataSource: DataSource;
-
   /**
    * 创建DOM渲染管理实例
    * @param container - 外层容器元素
@@ -17,14 +21,10 @@ export class DOMRenderer {
    */
   constructor(
     private container: HTMLElement,
-    dataSource: DataSource
+    private contentContainer: HTMLElement,
+    private dataSource: DataSource,
+    private view: any,
   ) {
-    // 获取已存在的内容容器
-    const contentElement = container.querySelector('#content') as HTMLElement;
-    if (!contentElement) {
-      throw new Error('未找到内容容器元素 #content');
-    }
-    this.content = contentElement;
     this.dataSource = dataSource;
   }
 
@@ -34,8 +34,8 @@ export class DOMRenderer {
    * @returns 容器的可视高度
    */
   initialize(): number {
-    const totalHeight = this.dataSource.rowHeights.reduce((a, b) => a + b, 0);
-    this.content.style.height = `${totalHeight}px`;
+    const totalHeight = this.dataSource.items.map(item => item.height).reduce((a, b) => a + b, 0);
+    this.contentContainer.style.height = `${totalHeight}px`;
     return this.container.clientHeight;
   }
 
@@ -44,22 +44,10 @@ export class DOMRenderer {
    * @param index - 行索引
    * @param content - 行内容
    */
-  renderRow(index: number, content: string) {
-    const row = this.content.children[index] as HTMLElement;
-    if (row && !row.innerHTML) {
-      row.innerHTML = content;
-    }
-  }
-
-  /**
-   * 更新指定行的内容
-   * @param index - 行索引
-   * @param content - 新内容
-   */
-  updateRow(index: number, content: string) {
-    const row = this.content.children[index] as HTMLElement;
-    if (row) {
-      row.innerHTML = content;
+  renderRow(index: number) {
+    const rowDom = this.getRowElement(index);
+    if (rowDom) {
+      forceRenderRow(rowDom.pmViewDesc, true, this.view);
     }
   }
 
@@ -68,9 +56,9 @@ export class DOMRenderer {
    * @param index - 行索引
    */
   clearRow(index: number) {
-    const row = this.content.children[index] as HTMLElement;
-    if (row) {
-      row.innerHTML = '';
+    const rowDom = this.getRowElement(index);
+    if (rowDom) {
+      forceRenderRow(rowDom.pmViewDesc, false, this.view);
     }
   }
 
@@ -80,6 +68,6 @@ export class DOMRenderer {
    * @returns 行元素或null
    */
   getRowElement(index: number): HTMLElement | null {
-    return this.content.children[index] as HTMLElement || null;
+    return this.contentContainer.children[index] as HTMLElement || null;
   }
 } 

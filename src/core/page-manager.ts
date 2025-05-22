@@ -60,14 +60,14 @@ export class PageManager {
     // 设置页面高度为容器高度的1.5倍，提供缓冲区
     const pageHeight = this.containerHeight * 1.5;
 
-    for (let i = 0; i < this.dataSource.totalCount; i++) {
-      currentHeight += this.dataSource.rowHeights[i];
-      if (currentHeight >= pageHeight || i === this.dataSource.totalCount - 1) {
+    for (let i = 0; i < this.dataSource.items.length; i++) {
+      currentHeight += this.dataSource.items[i].height;
+      if (currentHeight >= pageHeight || i === this.dataSource.items.length - 1) {
         this.pages.push({
           start: pageStart,
           end: i,
           top: this.getRowTop(pageStart),
-          bottom: this.getRowTop(i) + this.dataSource.rowHeights[i]
+          bottom: this.getRowTop(i) + this.dataSource.items[i].height
         });
         pageStart = i + 1;
         currentHeight = 0;
@@ -83,7 +83,7 @@ export class PageManager {
   getRowTop(index: number): number {
     let top = 0;
     for (let i = 0; i < index; i++) {
-      top += this.dataSource.rowHeights[i];
+      top += this.dataSource.items[i].height;
     }
     return top;
   }

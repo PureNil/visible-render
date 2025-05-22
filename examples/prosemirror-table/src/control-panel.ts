@@ -1,9 +1,6 @@
 import {EditorView} from "prosemirror-view"
 import {forceRenderRow} from "./table-cell-view"
-
-// 引入全局 cellRenderMap
-import { cellRenderMap } from "./table-cell-view"
-
+import { RangeManager } from './range-manager';
 // 创建控制面板
 export function createControlPanel(view: EditorView) {
   const panel = document.createElement('div');
@@ -69,7 +66,7 @@ export function createControlPanel(view: EditorView) {
     if (typeof getPos === 'function') {
       const pos = getPos();
       if (typeof pos === 'number') {
-        shouldRender = !(cellRenderMap.get(pos));
+        shouldRender = RangeManager.getFromState(view.state).isInRange(pos);
       }
     }
 

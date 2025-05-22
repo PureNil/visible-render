@@ -9,8 +9,7 @@ import { DOMRenderer } from './dom-renderer';
 import { PageManager } from './page-manager';
 import { ObserverManager } from './observer-manager';
 import { ScrollManager } from './scroll-manager';
-import { VisibleRenderOptions, PerformanceData, DataSource, DataItem } from '../types';
-import { DefaultDataSource } from './default-data-source';
+import { VisibleRenderOptions, PerformanceData, DataItem } from '../types';
 
 // 扩展Performance接口以包含memory属性
 declare global {
@@ -52,18 +51,18 @@ export class VisibleRender {
    */
   constructor(
     private container: HTMLElement,
-    options: VisibleRenderOptions = { container: container }
+    options: VisibleRenderOptions,
   ) {
     this.options = options;
     this.enablePerformanceMonitor = options.enablePerformanceMonitor ?? true;
     this.enableFastScroll = options.enableFastScroll ?? true;
 
     // 初始化数据源
-    const dataSource = options.dataSource || new DefaultDataSource(options.rowCount || 10000);
+    const dataSource = options.dataSource;
 
     // 初始化各个组件
     this.performanceMonitor = new PerformanceMonitor(container, options.performanceThresholds);
-    this.renderer = new DOMRenderer(container, dataSource);
+    this.renderer = new DOMRenderer(container, options.contentContainer, dataSource, options.view);
     const containerHeight = this.renderer.initialize();
     this.pageManager = new PageManager(containerHeight, dataSource);
     this.observerManager = new ObserverManager(container, this.renderer, this.pageManager, dataSource);
@@ -124,7 +123,7 @@ export class VisibleRender {
       scrollTime,
       renderTime,
       observedRows: this.observerManager.getObserverCount(),
-      totalRows: this.options.dataSource?.totalCount || 0,
+      totalRows: this.options.dataSource?.items.length || 0,
       currentPage: this.pageManager.getCurrentPage(this.container.scrollTop)
     });
   }
@@ -147,30 +146,8 @@ export class VisibleRender {
     return {
       fps: this.performanceMonitor.getCurrentFPS(),
       observerCount: this.observerManager.getObserverCount(),
-      renderedRows: this.options.dataSource?.totalCount || 0,
+      renderedRows: this.options.dataSource?.items.length || 0,
       memoryUsage: performance.memory?.usedJSHeapSize
     };
-  }
-
-  /**
-   * 更新指定行的数据
-   * @param index - 行索引
-   * @param data - 新数据
-   */
-  public updateRow(index: number, data: DataItem) {
-    this.renderer.updateRow(index, data.content);
-    if (this.options.onDataUpdate) {
-      this.options.onDataUpdate(index, data);
-    }
-  }
-
-  /**
-   * 刷新所有数据
-   */
-  public refresh() {
-    if (this.options.dataSource) {
-      this.options.dataSource.refresh();
-      this.observerManager.handleScroll();
-    }
   }
 } 

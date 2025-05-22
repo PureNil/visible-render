@@ -49,4 +49,32 @@
     bottom: 0;
     background: rgba(200, 200, 255, 0.4);
     pointer-events: none;
+}
+
+/* 表格包装器样式 */
+.tableWrapper {
+    padding: 1rem 0;
+    overflow-x: auto;
+}
+
+/* 列宽调整样式 */
+.column-resize-handle {
+    background-color: #adf;
+    width: 4px;
+    position: absolute;
+    right: -2px;
+    top: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 20;
+}
+
+/* 表格单元格占位符样式 */
+.table-cell-placeholder {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #999;
+    font-size: 14px;
 } 

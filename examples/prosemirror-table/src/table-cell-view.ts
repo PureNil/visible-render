@@ -1,18 +1,9 @@
 import { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorView, NodeView } from 'prosemirror-view';
+import { RangeManager, rangeManagerKey } from './range-manager';
 
-// 全局 map，key 用 getPos() 的返回值（假设唯一）
-export const cellRenderMap = new Map<number, boolean>();
-
-export function forceRenderRow(rowViewDesc: any, shouldRender: boolean, view: EditorView) {
-  console.log(111111, shouldRender)
-  rowViewDesc.children.forEach((viewDesc: any) => {
-    console.log(111111, viewDesc)
-    viewDesc.spec.setShouldRender(shouldRender);
-    viewDesc.markDirty(1, viewDesc.node.nodeSize - 1);    
-  });
-  rowViewDesc.updateChildren(view, rowViewDesc.posAtStart);
-}
+// 表格渲染范围的 key 前缀
+const TABLE_RENDER_KEY_PREFIX = 'table-render';
 
 // 创建表格单元格视图
 export class TableCellView implements NodeView {
@@ -29,6 +20,13 @@ export class TableCellView implements NodeView {
     placeholder.style.height = '100%';
     placeholder.style.backgroundColor = '#f0f0f0';
     return placeholder;
+  }
+
+  // 获取是否应该渲染
+  private getShouldRender(): boolean {
+    const pos = this.getPos();
+    const rangeManager = rangeManagerKey.getState(this.view.state) as RangeManager;
+    return pos !== undefined && rangeManager ? rangeManager.isInRange(pos) : false;
   }
 
   constructor(node: ProseMirrorNode, view: EditorView, getPos: () => number | undefined) {
@@ -48,11 +46,8 @@ export class TableCellView implements NodeView {
       }
     }
 
-    // 读取全局 shouldRender 状态
-    const pos = this.getPos();
-    const shouldRender = pos !== undefined ? cellRenderMap.get(pos) : false;
-
-    console.log(1111111, 'create', shouldRender)
+    // 读取全局渲染状态
+    const shouldRender = this.getShouldRender();
     
     if (shouldRender) {
       this.contentDOM = this.dom;
@@ -63,43 +58,16 @@ export class TableCellView implements NodeView {
     }
   }
 
-  // shouldRender 不再挂在实例上
-
-  setShouldRender(bool: boolean) {
-    const pos = this.getPos();
-    if (pos !== undefined) {
-      cellRenderMap.set(pos, bool);
-    }
-    console.log(1111111, 'setShouldRender', bool)
-  }
-
   // 更新节点
   update(node: ProseMirrorNode) {
     if (node.type !== this.node.type) return false;
     this.node = node;
 
-    const pos = this.getPos();
-    const shouldRender = pos !== undefined ? cellRenderMap.get(pos) : false;
+    const shouldRender = this.getShouldRender();
 
-    console.log(1111111, 'update', shouldRender)
-
-    // // 更新单元格宽度
-    // if (node.attrs.colwidth) {
-    //   const width = node.attrs.colwidth[0];
-    //   if (width) {
-    //     this.dom.style.width = `${width}px`;
-    //   }
-    // }
-
-    if (!shouldRender && this.contentDOM) {
-      // this.contentDOM = null;
+    // 如果渲染状态发生变化，返回 false 让 ProseMirror 重新创建节点视图
+    if (shouldRender !== (this.contentDOM !== null)) {
       return false;
-    }
-
-    if (shouldRender && !this.contentDOM) {
-      // this.contentDOM = this.dom;
-      // this.contentDOM.innerHTML = ''; // 清空内容
-      return false
     }
 
     return true;
@@ -109,6 +77,29 @@ export class TableCellView implements NodeView {
 // 创建表格单元格视图工厂函数
 export function createTableCellView(node: ProseMirrorNode, view: EditorView, getPos: () => number | undefined) {
   return new TableCellView(node, view, getPos);
+}
+
+export function forceRenderRow(rowViewDesc: any, shouldRender: boolean, view: EditorView) {
+  const startPos = rowViewDesc.posAtStart;
+  const endPos = rowViewDesc.posAtEnd;
+  const key = TABLE_RENDER_KEY_PREFIX;
+
+  const rangeManager = rangeManagerKey.getState(view.state) as RangeManager;
+  if (!rangeManager) return;
+
+  if (shouldRender) {
+    // 设置范围
+    rangeManager.setRange(key, startPos, endPos);
+  } else {
+    // 移除该行范围内的渲染状态，保留其他范围
+    rangeManager.removeRangeInRegion(key, startPos, endPos);
+  }
+
+  // 更新所有子节点
+  rowViewDesc.children.forEach((viewDesc: any) => {
+    viewDesc.markDirty(1, viewDesc.node.nodeSize - 1);    
+  });
+  rowViewDesc.updateChildren(view, rowViewDesc.posAtStart);
 }
 
 // 添加样式

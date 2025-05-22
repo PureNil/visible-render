@@ -3,10 +3,9 @@ import { EditorView } from 'prosemirror-view';
 import { Schema } from 'prosemirror-model';
 import { schema } from 'prosemirror-schema-basic';
 import { addListNodes } from 'prosemirror-schema-list';
-import { exampleSetup } from 'prosemirror-example-setup';
-import { tableNodes } from 'prosemirror-tables';
+// import { exampleSetup } from 'prosemirror-example-setup';
+import { tableNodes, tableEditing, columnResizing } from 'prosemirror-tables';
 import { VisibleRender } from '../../src/core/visible-render';
-import { DefaultDataSource } from '../../src/core/default-data-source';
 import { createTable } from './src/table-utils';
 import { createTableCellView } from './src/table-cell-view';
 import { createControlPanel } from './src/control-panel';
@@ -33,18 +32,19 @@ const tableNodesSpec = tableNodes({
 // 合并 schema
 const mySchema = new Schema({
   nodes: addListNodes(schema.spec.nodes, 'paragraph block*', 'block')
-    .addToEnd('table', tableNodesSpec.table)
-    .addToEnd('table_row', tableNodesSpec.table_row)
-    .addToEnd('table_cell', tableNodesSpec.table_cell)
-    .addToEnd('table_header', tableNodesSpec.table_header),
+    .append(tableNodesSpec),
   marks: schema.spec.marks
 });
+const tableData = createTable(mySchema, 1000, 10);
 
 // 创建编辑器状态
 const state = EditorState.create({
   schema: mySchema,
-  doc: createTable(mySchema, 1000, 10),
-  plugins: exampleSetup({ schema: mySchema })
+  doc: tableData,
+  plugins: [
+    tableEditing(),
+    columnResizing()
+  ]
 });
 
 // 创建编辑器视图
@@ -60,13 +60,25 @@ const controlPanel = createControlPanel(view as any);
 document.body.appendChild(controlPanel);
 
 // 初始化VisibleRender
-const container = document.querySelector('#editor') as HTMLElement;
-const dataSource = new DefaultDataSource(1000); // 1000行数据
+const container = document.querySelector('#container') as HTMLElement;
+// const contentContainer = document.querySelector('#editor') as HTMLElement;
+
+const tableDom = document.querySelector('#editor table') as HTMLElement;
+const tableViewDesc = tableDom.pmViewDesc;
+
+const dataSource = {
+  items: tableViewDesc?.children.map(item => {
+    return {
+      item,
+      height: item.node?.attrs.height || 0,
+    }
+  }) || []
+};
 
 export const visibleRender = new VisibleRender(container, {
-  container,
+  contentContainer: tableDom,
   dataSource,
   enablePerformanceMonitor: true,
   enableFastScroll: true,
-  rowCount: 1000
+  view,
 });

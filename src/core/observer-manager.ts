@@ -67,8 +67,7 @@ export class ObserverManager {
         const index = parseInt(row.dataset.index || '0');
         
         if (entry.isIntersecting) {
-          const data = this.dataSource.getData(index);
-          this.renderer.renderRow(index, data.content);
+          this.renderer.renderRow(index);
           row.style.backgroundColor = this.pageManager.getPageColor(index);
         } else {
           const pageIndex = this.pageManager.getPageIndexForRow(index);

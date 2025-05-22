@@ -991,11 +991,6 @@ class CustomNodeViewDesc extends NodeViewDesc {
     if (this.dirty == NODE_DIRTY) return false
     if (this.spec.update && (this.node.type == node.type || this.spec.multiType)) {
       let result = this.spec.update(node, outerDeco, innerDeco)
-
-      if (this.spec.contentDOM !== undefined) {
-        this.contentDOM = this.spec.contentDOM;
-      }
-
       if (result) this.updateInner(node, outerDeco, innerDeco, view)
       return result
     } else if (!this.contentDOM && !node.isLeaf) {
